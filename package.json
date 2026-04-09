@@ -1,0 +1,18 @@
+{
+  "name": "musicmanager",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "mobile",
+    "server",
+    "shared"
+  ],
+  "scripts": {
+    "mobile": "npm run --workspace=mobile",
+    "server": "npm run --workspace=server",
+    "dev:server": "npm run dev --workspace=server",
+    "dev:mobile": "npm run start --workspace=mobile",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}

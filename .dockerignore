@@ -1,0 +1,8 @@
+node_modules
+mobile
+docs
+.git
+.env
+.env.*
+*.md
+deploy.sh
