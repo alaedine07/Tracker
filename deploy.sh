@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-APP_DIR="$HOME/musicmanager"
+APP_DIR="$HOME/Tracker"
 
 echo "==> Pulling latest code..."
 cd "$APP_DIR"
