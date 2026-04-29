@@ -153,6 +153,57 @@ export async function searchTrack(
   return data.tracks?.items?.[0] ?? null;
 }
 
+// ──── Audio Features ────
+
+export interface SpotifyAudioFeatures {
+  id: string;
+  tempo: number;
+  energy: number;
+  danceability: number;
+  valence: number;
+}
+
+/**
+ * Get audio features for up to 100 tracks at a time.
+ * Returns a map of trackId → audio features.
+ */
+export async function getAudioFeaturesBatch(
+  accessToken: string,
+  spotifyTrackIds: string[]
+): Promise<Map<string, SpotifyAudioFeatures>> {
+  const result = new Map<string, SpotifyAudioFeatures>();
+  if (spotifyTrackIds.length === 0) return result;
+
+  // Spotify allows max 100 IDs per request
+  const BATCH_SIZE = 100;
+  for (let i = 0; i < spotifyTrackIds.length; i += BATCH_SIZE) {
+    const batch = spotifyTrackIds.slice(i, i + BATCH_SIZE);
+    const ids = batch.join(",");
+
+    const response = await spotifyFetch(
+      `/audio-features?ids=${ids}`,
+      accessToken
+    );
+
+    if (!response.ok) {
+      console.warn(`Audio features request failed: ${response.status}`);
+      continue;
+    }
+
+    const data = (await response.json()) as {
+      audio_features: (SpotifyAudioFeatures | null)[];
+    };
+
+    for (const feature of data.audio_features) {
+      if (feature) {
+        result.set(feature.id, feature);
+      }
+    }
+  }
+
+  return result;
+}
+
 /**
  * Paginate through a Spotify endpoint, collecting all items
  */

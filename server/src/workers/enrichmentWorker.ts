@@ -4,6 +4,8 @@ import { eq, and, isNull, sql } from "drizzle-orm";
 import { db } from "../config/database";
 import { tracks, userTracks, trackMetadata, scanJobs } from "../db/schema";
 import { getTrackTopTags, getArtistTopTags } from "../services/lastfmService";
+import { getAudioFeaturesBatch } from "../services/spotifyService";
+import { getSpotifyToken } from "../utils/spotifyToken";
 import { classifyTags } from "../utils/genreNormalization";
 import { completeScan } from "../services/scanService";
 
@@ -16,7 +18,7 @@ export const enrichmentQueue = new Queue("enrichment", { connection: redis });
 interface EnrichmentJobData {
   userId: string;
   scanJobId: string;
-  phase: "track-tags" | "artist-tags";
+  phase: "track-tags" | "artist-tags" | "audio-features";
 }
 
 // ──── Helpers ────
@@ -167,6 +169,71 @@ async function enrichArtistTags(userId: string, scanJobId: string) {
   return { total, processed, uniqueArtists: artistTagCache.size };
 }
 
+// ──── Phase 3c: Audio Features from Spotify ────
+
+async function enrichAudioFeatures(userId: string, scanJobId: string) {
+  await updateEnrichmentProgress(scanJobId, 0, 0, "audio-features");
+
+  // Get all user tracks that are missing BPM/energy data
+  const tracksNeedingFeatures = await db
+    .select({
+      trackId: tracks.id,
+      spotifyTrackId: tracks.spotifyTrackId,
+    })
+    .from(userTracks)
+    .innerJoin(tracks, eq(userTracks.trackId, tracks.id))
+    .leftJoin(trackMetadata, eq(tracks.id, trackMetadata.trackId))
+    .where(
+      and(
+        eq(userTracks.userId, userId),
+        sql`(${trackMetadata.bpmEstimate} IS NULL OR ${trackMetadata.energyEstimate} IS NULL)`
+      )
+    );
+
+  const total = tracksNeedingFeatures.length;
+  await updateEnrichmentProgress(scanJobId, 0, total, "audio-features");
+
+  if (total === 0) return { total: 0, processed: 0 };
+
+  const accessToken = await getSpotifyToken(userId);
+  let processed = 0;
+
+  // Process in batches of 100 (Spotify API limit)
+  const BATCH_SIZE = 100;
+  for (let i = 0; i < tracksNeedingFeatures.length; i += BATCH_SIZE) {
+    const batch = tracksNeedingFeatures.slice(i, i + BATCH_SIZE);
+    const spotifyIds = batch.map((t) => t.spotifyTrackId);
+
+    const featuresMap = await getAudioFeaturesBatch(accessToken, spotifyIds);
+
+    for (const track of batch) {
+      const features = featuresMap.get(track.spotifyTrackId);
+      if (features) {
+        await db
+          .insert(trackMetadata)
+          .values({
+            trackId: track.trackId,
+            bpmEstimate: Math.round(features.tempo),
+            energyEstimate: features.energy,
+          })
+          .onConflictDoUpdate({
+            target: trackMetadata.trackId,
+            set: {
+              bpmEstimate: Math.round(features.tempo),
+              energyEstimate: features.energy,
+              enrichedAt: new Date(),
+            },
+          });
+      }
+      processed++;
+    }
+
+    await updateEnrichmentProgress(scanJobId, processed);
+  }
+
+  return { total, processed };
+}
+
 // ──── Worker ────
 
 export const enrichmentWorker = new Worker<EnrichmentJobData>(
@@ -178,8 +245,10 @@ export const enrichmentWorker = new Worker<EnrichmentJobData>(
       if (phase === "track-tags") {
         return await enrichTrackTags(userId, scanJobId);
       } else if (phase === "artist-tags") {
-        const result = await enrichArtistTags(userId, scanJobId);
-        // Artist tags is the last enrichment phase — mark scan complete
+        return await enrichArtistTags(userId, scanJobId);
+      } else if (phase === "audio-features") {
+        const result = await enrichAudioFeatures(userId, scanJobId);
+        // Audio features is the last enrichment phase — mark scan complete
         await completeScan(scanJobId);
         return result;
       }

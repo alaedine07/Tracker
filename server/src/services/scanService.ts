@@ -62,6 +62,7 @@ export async function startLibraryScan(userId: string) {
  * Queue enrichment phases after library scan completes.
  * Phase 3a: Track tags from Last.fm
  * Phase 3b: Artist tags as fallback for tracks with no genres
+ * Phase 3c: Audio features (BPM, energy) from Spotify
  */
 export async function startEnrichment(userId: string, scanJobId: string) {
   // Phase 3a: Track tag enrichment
@@ -77,6 +78,16 @@ export async function startEnrichment(userId: string, scanJobId: string) {
     { userId, scanJobId, phase: "artist-tags" as const },
     {
       jobId: `enrich-${scanJobId}-artist-tags`,
+      delay: 0,
+    }
+  );
+
+  // Phase 3c: Audio features from Spotify (queued after artist-tags due to concurrency: 1)
+  await enrichmentQueue.add(
+    "audio-features",
+    { userId, scanJobId, phase: "audio-features" as const },
+    {
+      jobId: `enrich-${scanJobId}-audio-features`,
       delay: 0,
     }
   );
