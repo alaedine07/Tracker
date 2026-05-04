@@ -54,7 +54,7 @@ export function useSpotifyAuth() {
       Platform.OS === "web"
         ? window.location.origin
         : AuthSession.makeRedirectUri({
-            scheme: "exp+musicmanager",
+            scheme: "musicmanager",
             path: "callback",
             preferLocalhost: false,
           });

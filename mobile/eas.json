@@ -1,0 +1,28 @@
+{
+  "cli": {
+    "version": ">= 3.0.0"
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://tracker.alaspace.me",
+        "EXPO_PUBLIC_SPOTIFY_CLIENT_ID": "7772ac3ce477425cb358cbb0b4f25b9b",
+        "EXPO_PUBLIC_SPOTIFY_REDIRECT_URI": "musicmanager://callback"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://tracker.alaspace.me",
+        "EXPO_PUBLIC_SPOTIFY_CLIENT_ID": "7772ac3ce477425cb358cbb0b4f25b9b",
+        "EXPO_PUBLIC_SPOTIFY_REDIRECT_URI": "musicmanager://callback"
+      }
+    }
+  }
+}

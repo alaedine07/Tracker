@@ -53,8 +53,8 @@ export async function chatCompletion(
     messages,
     temperature: options.temperature ?? 0.7,
     max_tokens: options.max_tokens ?? 4096,
-    response_format: options.response_format,
-    plugins: options.plugins,
+    ...(options.response_format ? { response_format: options.response_format } : {}),
+    ...(options.plugins ? { plugins: options.plugins } : {}),
   });
 
   const headers = {
@@ -89,8 +89,15 @@ export async function chatCompletion(
     throw new Error(`OpenRouter API error: ${response!.status} ${error}`);
   }
 
-  const data = (await response!.json()) as ChatCompletionResponse;
-  const content = data.choices[0]?.message?.content || "";
+  const data = (await response!.json()) as any;
+
+  // Check for OpenRouter-level errors
+  if (data.error) {
+    console.error(`[AI Service] OpenRouter error:`, JSON.stringify(data.error));
+    throw new Error(`OpenRouter error: ${data.error.message || JSON.stringify(data.error)}`);
+  }
+
+  const content = data.choices?.[0]?.message?.content || "";
 
   console.log("\n========== [AI Service] Response ==========");
   if (data.usage) {

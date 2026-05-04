@@ -15,7 +15,7 @@ const envSchema = z.object({
   SPOTIFY_REDIRECT_URI: z.string().min(1),
   LASTFM_API_KEY: z.string().min(1),
   OPENROUTER_API_KEY: z.string().min(1),
-  OPENROUTER_MODEL: z.string().default("openai/gpt-4o-mini"),
+  OPENROUTER_MODEL: z.string().default("google/gemini-2.0-flash-001"),
 });
 
 export type Env = z.infer<typeof envSchema>;
